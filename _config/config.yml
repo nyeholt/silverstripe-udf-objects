@@ -1,0 +1,14 @@
+---
+Name: form_submission_config
+Only:
+  moduleexists:
+    - 'silverstripe/userforms'
+---
+SilverStripe\UserForms\Model\UserDefinedForm:
+  extensions:
+    - Symbiote\UdfObjects\UserFormExtension
+
+SilverStripe\UserForms\Control\UserDefinedFormController:
+  extensions:
+    - Symbiote\UdfObjects\MappedSubmittedFormExtension
+
