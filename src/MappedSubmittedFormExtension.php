@@ -12,5 +12,12 @@ class MappedSubmittedFormExtension extends Extension
         $formId = $this->owner->ParentID;
 
         $form = UserDefinedForm::get()->byID($formId);
+
+        if ($form->SubmissionListID) {
+            $list = $form->SubmissionList();
+            if ($list && $list->ID) {
+                $list->addFormSubmission($this->owner);
+            }
+        }
     }
 }

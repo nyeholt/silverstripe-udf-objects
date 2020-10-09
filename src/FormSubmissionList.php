@@ -4,17 +4,28 @@ namespace Symbiote\UdfObjects;
 
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\Forms\DropdownField;
+use SilverStripe\Forms\GridField\GridField;
+use SilverStripe\Forms\GridField\GridFieldConfig;
+use SilverStripe\Forms\GridField\GridFieldConfig_RecordEditor;
+use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\DataObject;
+use SilverStripe\UserForms\Model\EditableFormField\EditableFormStep;
+use SilverStripe\UserForms\Model\Submission\SubmittedForm;
+use SilverStripe\UserForms\Model\UserDefinedForm;
 use Symbiote\MultiValueField\Fields\KeyValueField;
 
 class FormSubmissionList extends DataObject
 {
+    private static $table_name = 'FormSubmissionList';
+
     private static $db = [
+        'Title'     => 'Varchar(128)',
         'TargetClass' => 'Varchar(255)',
         'PropertyMap' => 'MultiValueField',
     ];
 
-    public function onBeforeWrite() {
+    public function onBeforeWrite()
+    {
         parent::onBeforeWrite();
 
         $props = $this->PropertyMap->getValues();
@@ -30,7 +41,15 @@ class FormSubmissionList extends DataObject
     {
         $fields = parent::getCMSFields();
 
-        $fields->replaceField('TargetClass', DropdownField::create('TargetClass', 'Create items of this type', ClassInfo::allClasses()));
+        $types = [];
+        $dataClasses = ClassInfo::subclassesFor(DataObject::class);
+        foreach ($dataClasses as $type => $label) {
+            if (DataObject::has_extension($type, FormResponseExtension::class)) {
+                $types[$type] = substr($label, strrpos($label, "\\") + 1);
+            }
+        }
+
+        $fields->replaceField('TargetClass', DropdownField::create('TargetClass', 'Create items of this type', $types));
 
         $fields->removeByName('PropertyMap');
         if ($this->ID && $this->TargetClass) {
@@ -40,12 +59,71 @@ class FormSubmissionList extends DataObject
                 $dbFields = array_keys($this->getSchema()->databaseFields($this->TargetClass));
                 $dbFields = array_combine($dbFields, $dbFields);
             }
-            $mappingField = KeyValueField::create('PropertyMap', 'Map fields from the submission to a property', null, $dbFields);
+
+            $formFields = $this->gatherFormFields();
+
+            $mappingField = KeyValueField::create('PropertyMap', 'Map fields from the form to a property', $formFields, $dbFields);
             // $mappingField->setRightTitle("");
             $fields->insertAfter('TargetClass', $mappingField);
+
+            $items = DataList::create($this->TargetClass)->filter([
+                'SubmissionListID' => $this->ID,
+            ]);
+
+            if ($items && count($items)) {
+                $conf = GridFieldConfig_RecordEditor::create();
+                $grid = GridField::create('Submissions', 'Submissions', $items, $conf);
+                $fields->addFieldToTab('Root.Main', $grid);
+            }
         }
 
 
         return $fields;
+    }
+
+    /**
+     * Collects all the form field names from the forms that submit to this
+     * location
+     */
+    protected function gatherFormFields()
+    {
+        $forms = UserDefinedForm::get()->filter([
+            'SubmissionListID' => $this->ID,
+        ]);
+
+        $names = [];
+        foreach ($forms as $form) {
+            foreach ($form->Fields() as $field) {
+                if ($field instanceof EditableFormStep) {
+                    continue;
+                }
+                $names[$field->Title] = $field->Title;
+            }
+        }
+
+        return $names;
+    }
+
+    public function addFormSubmission(SubmittedForm $submission)
+    {
+        $mapping = $this->PropertyMap->getValues();
+
+        $submittedFields = $submission->Values();
+
+        $toCreate = $this->TargetClass;
+
+        if ($mapping && $submittedFields && $toCreate) {
+            $submissionFieldVals = [];
+            foreach ($submittedFields as $submittedField) {
+                if (isset($mapping[$submittedField->Title])) {
+                    $fname = $mapping[$submittedField->Title];
+                    $submissionFieldVals[$fname] = $submittedField->Value;
+                }
+            }
+
+            $obj = $toCreate::create($submissionFieldVals);
+            $obj->SubmissionListID = $this->ID;
+            $obj->write();
+        }
     }
 }
