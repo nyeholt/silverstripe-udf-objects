@@ -7,6 +7,9 @@ use SilverStripe\Forms\DropdownField;
 use SilverStripe\Forms\GridField\GridField;
 use SilverStripe\Forms\GridField\GridFieldConfig;
 use SilverStripe\Forms\GridField\GridFieldConfig_RecordEditor;
+use SilverStripe\Forms\GridField\GridFieldSortableHeader;
+use SilverStripe\Forms\Tab;
+use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\UserForms\Model\EditableFormField\EditableFormStep;
@@ -41,6 +44,7 @@ class FormSubmissionList extends DataObject
     {
         $fields = parent::getCMSFields();
 
+
         $types = [];
         $dataClasses = ClassInfo::subclassesFor(DataObject::class);
         foreach ($dataClasses as $type => $label) {
@@ -50,9 +54,18 @@ class FormSubmissionList extends DataObject
         }
 
         $fields->replaceField('TargetClass', DropdownField::create('TargetClass', 'Create items of this type', $types));
-
         $fields->removeByName('PropertyMap');
+
         if ($this->ID && $this->TargetClass) {
+            $fields->addFieldToTab('Root', Tab::create('Configuration'));
+            $configFields = [];
+            $configFields[] = $fields->dataFieldByName('Title');
+            $configFields[] = $fields->dataFieldByName('TargetClass');
+
+            $fields->removeFieldsFromTab('Root.Main', ['Title', 'TargetClass', 'PropertyMap']);
+
+            $fields->addFieldsToTab('Root.Configuration', $configFields);
+
             $inst = singleton($this->TargetClass);
             $dbFields = [];
             if ($inst) {
@@ -72,7 +85,8 @@ class FormSubmissionList extends DataObject
 
             if ($items && count($items)) {
                 $conf = GridFieldConfig_RecordEditor::create();
-                $grid = GridField::create('Submissions', 'Submissions', $items, $conf);
+                $conf->getComponentByType(GridFieldSortableHeader::class);
+                $grid = GridField::create('Submissions', 'Submissions', $items->sort('ID', "DESC"), $conf);
                 $fields->addFieldToTab('Root.Main', $grid);
             }
         }
@@ -123,6 +137,7 @@ class FormSubmissionList extends DataObject
 
             $obj = $toCreate::create($submissionFieldVals);
             $obj->SubmissionListID = $this->ID;
+            $obj->FromFormID = $submission->ParentID;
             $obj->write();
         }
     }
