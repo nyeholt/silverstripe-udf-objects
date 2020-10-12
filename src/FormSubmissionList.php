@@ -2,12 +2,21 @@
 
 namespace Symbiote\UdfObjects;
 
+use SilverStripe\Admin\ModelAdmin;
+use SilverStripe\Control\Controller;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\Forms\DropdownField;
+use SilverStripe\Forms\FieldList;
+use SilverStripe\Forms\FileField;
+use SilverStripe\Forms\Form;
+use SilverStripe\Forms\FormAction;
 use SilverStripe\Forms\GridField\GridField;
 use SilverStripe\Forms\GridField\GridFieldConfig;
 use SilverStripe\Forms\GridField\GridFieldConfig_RecordEditor;
+use SilverStripe\Forms\GridField\GridFieldExportButton;
+use SilverStripe\Forms\GridField\GridFieldImportButton;
 use SilverStripe\Forms\GridField\GridFieldSortableHeader;
+use SilverStripe\Forms\HiddenField;
 use SilverStripe\Forms\Tab;
 use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataList;
@@ -25,6 +34,7 @@ class FormSubmissionList extends DataObject
         'Title'     => 'Varchar(128)',
         'TargetClass' => 'Varchar(255)',
         'PropertyMap' => 'MultiValueField',
+        'RemoveFormSubmissions' => 'Boolean',
     ];
 
     public function onBeforeWrite()
@@ -57,12 +67,15 @@ class FormSubmissionList extends DataObject
         $fields->removeByName('PropertyMap');
 
         if ($this->ID && $this->TargetClass) {
+            $mapping = $this->PropertyMap->getValues();
+
             $fields->addFieldToTab('Root', Tab::create('Configuration'));
             $configFields = [];
             $configFields[] = $fields->dataFieldByName('Title');
             $configFields[] = $fields->dataFieldByName('TargetClass');
+            $configFields[] = $fields->dataFieldByName('RemoveFormSubmissions');
 
-            $fields->removeFieldsFromTab('Root.Main', ['Title', 'TargetClass', 'PropertyMap']);
+            $fields->removeFieldsFromTab('Root.Main', ['Title', 'TargetClass', 'PropertyMap', 'RemoveFormSubmissions']);
 
             $fields->addFieldsToTab('Root.Configuration', $configFields);
 
@@ -86,6 +99,13 @@ class FormSubmissionList extends DataObject
             if ($items && count($items)) {
                 $conf = GridFieldConfig_RecordEditor::create();
                 $conf->getComponentByType(GridFieldSortableHeader::class);
+                $exportButton = new GridFieldExportButton('buttons-before-left');
+
+                $exportFields = count($mapping) ? array_combine(array_values($mapping), array_values($mapping)) : singleton($this->TargetClass)->summaryFields();
+                $exportButton->setExportColumns($exportFields);
+                $conf->addComponent(
+                    $exportButton
+                );
                 $grid = GridField::create('Submissions', 'Submissions', $items->sort('ID', "DESC"), $conf);
                 $fields->addFieldToTab('Root.Main', $grid);
             }
@@ -139,6 +159,11 @@ class FormSubmissionList extends DataObject
             $obj->SubmissionListID = $this->ID;
             $obj->FromFormID = $submission->ParentID;
             $obj->write();
+
+            // now remove if needed
+            if ($this->RemoveFormSubmissions) {
+                $submission->delete();
+            }
         }
     }
 }
