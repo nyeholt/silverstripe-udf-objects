@@ -2,28 +2,23 @@
 
 namespace Symbiote\UdfObjects;
 
-use SilverStripe\Admin\ModelAdmin;
-use SilverStripe\Control\Controller;
 use SilverStripe\Core\ClassInfo;
+use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\DropdownField;
-use SilverStripe\Forms\FieldList;
-use SilverStripe\Forms\FileField;
-use SilverStripe\Forms\Form;
-use SilverStripe\Forms\FormAction;
 use SilverStripe\Forms\GridField\GridField;
-use SilverStripe\Forms\GridField\GridFieldConfig;
 use SilverStripe\Forms\GridField\GridFieldConfig_RecordEditor;
 use SilverStripe\Forms\GridField\GridFieldExportButton;
-use SilverStripe\Forms\GridField\GridFieldImportButton;
 use SilverStripe\Forms\GridField\GridFieldSortableHeader;
-use SilverStripe\Forms\HiddenField;
 use SilverStripe\Forms\Tab;
-use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\DataObject;
+use SilverStripe\Security\Permission;
 use SilverStripe\UserForms\Model\EditableFormField\EditableFormStep;
 use SilverStripe\UserForms\Model\Submission\SubmittedForm;
 use SilverStripe\UserForms\Model\UserDefinedForm;
+use Symbiote\AdvancedWorkflow\DataObjects\WorkflowDefinition;
+use Symbiote\AdvancedWorkflow\Extensions\WorkflowApplicable;
+use Symbiote\AdvancedWorkflow\Services\WorkflowService;
 use Symbiote\MultiValueField\Fields\KeyValueField;
 
 class FormSubmissionList extends DataObject
@@ -109,6 +104,14 @@ class FormSubmissionList extends DataObject
                 $grid = GridField::create('Submissions', 'Submissions', $items->sort('ID', "DESC"), $conf);
                 $fields->addFieldToTab('Root.Main', $grid);
             }
+
+            if (class_exists(WorkflowDefinition::class) && DataObject::has_extension($this->TargetClass, WorkflowApplicable::class) && Permission::check('ADMIN')) {
+                $fields->removeByName('AdditionalWorkflowDefinitions');
+                $fields->addFieldsToTab('Root.Workflow', [
+                    DropdownField::create('WorkflowDefinitionID', 'Workflow to apply', WorkflowDefinition::get()->map())
+                        ->setEmptyString('Select a workflow')
+                ]);
+            }
         }
 
 
@@ -164,6 +167,17 @@ class FormSubmissionList extends DataObject
             if ($this->RemoveFormSubmissions) {
                 $submission->delete();
             }
+
+            if ($this->WorkflowDefinitionID) {
+                Injector::inst()->get(WorkflowService::class)->startWorkflow($obj, $this->WorkflowDefinitionID);
+            }
         }
+    }
+
+    /**
+     * From a workflow perspective, we're acrchived
+     */
+    public function isArchived() {
+        return true;
     }
 }

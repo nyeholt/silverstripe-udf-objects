@@ -9,3 +9,16 @@ SilverStripe\UserForms\Model\Submission\SubmittedForm:
   extensions:
     - Symbiote\UdfObjects\MappedSubmittedFormExtension
 
+
+---
+Name: form_submission_workflow_config
+Only:
+  moduleexists:
+    - symbiote/silverstripe-advancedworkflow
+---
+Symbiote\UdfObjects\FormSubmissionList:
+  extensions:
+    - Symbiote\AdvancedWorkflow\Extensions\WorkflowApplicable
+Symbiote\UdfObjects\FormSubmissionListAdmin:
+  extensions:
+    - Symbiote\AdvancedWorkflow\Extensions\AdvancedWorkflowExtension
