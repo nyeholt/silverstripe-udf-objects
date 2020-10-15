@@ -7,12 +7,16 @@ use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\DropdownField;
 use SilverStripe\Forms\GridField\GridField;
 use SilverStripe\Forms\GridField\GridFieldConfig_RecordEditor;
+use SilverStripe\Forms\GridField\GridFieldEditButton;
 use SilverStripe\Forms\GridField\GridFieldExportButton;
 use SilverStripe\Forms\GridField\GridFieldSortableHeader;
+use SilverStripe\Forms\ListboxField;
 use SilverStripe\Forms\Tab;
 use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\DataObject;
+use SilverStripe\Security\Group;
 use SilverStripe\Security\Permission;
+use SilverStripe\Security\Security;
 use SilverStripe\UserForms\Model\EditableFormField\EditableFormStep;
 use SilverStripe\UserForms\Model\Submission\SubmittedForm;
 use SilverStripe\UserForms\Model\UserDefinedForm;
@@ -32,6 +36,11 @@ class FormSubmissionList extends DataObject
         'RemoveFormSubmissions' => 'Boolean',
     ];
 
+    private static $many_many = [
+        'ViewGroups' => Group::class,
+        'EditorGroups' => Group::class,
+    ];
+
     public function onBeforeWrite()
     {
         parent::onBeforeWrite();
@@ -49,7 +58,6 @@ class FormSubmissionList extends DataObject
     {
         $fields = parent::getCMSFields();
 
-
         $types = [];
         $dataClasses = ClassInfo::subclassesFor(DataObject::class);
         foreach ($dataClasses as $type => $label) {
@@ -61,6 +69,9 @@ class FormSubmissionList extends DataObject
         $fields->replaceField('TargetClass', DropdownField::create('TargetClass', 'Create items of this type', $types));
         $fields->removeByName('PropertyMap');
 
+        $fields->removeByName('ViewGroups');
+        $fields->removeByName('EditorGroups');
+
         if ($this->ID && $this->TargetClass) {
             $mapping = $this->PropertyMap->getValues();
 
@@ -71,6 +82,10 @@ class FormSubmissionList extends DataObject
             $configFields[] = $fields->dataFieldByName('RemoveFormSubmissions');
 
             $fields->removeFieldsFromTab('Root.Main', ['Title', 'TargetClass', 'PropertyMap', 'RemoveFormSubmissions']);
+
+            $groups = Group::get()->map()->toArray();
+            $configFields[] = ListboxField::create('ViewGroups', "Viewer groups", $groups);
+            $configFields[] = ListboxField::create('EditorGroups', "Editor groups", $groups);
 
             $fields->addFieldsToTab('Root.Configuration', $configFields);
 
@@ -102,6 +117,12 @@ class FormSubmissionList extends DataObject
                     $exportButton
                 );
                 $grid = GridField::create('Submissions', 'Submissions', $items->sort('ID', "DESC"), $conf);
+
+                // for workflow support!
+                $components = $grid->getReadonlyComponents();
+                $components[] = GridFieldEditButton::class;
+                $grid->setReadonlyComponents($components);
+
                 $fields->addFieldToTab('Root.Main', $grid);
             }
 
@@ -179,5 +200,35 @@ class FormSubmissionList extends DataObject
      */
     public function isArchived() {
         return true;
+    }
+
+    public function canView($member = null)
+    {
+        if (!$member) {
+            $member = Security::getCurrentUser();
+        }
+        $can = parent::canView($member);
+        if (!$can && $member && $member->ID) {
+            if ($member->inGroups($this->ViewGroups())) {
+                $can = true;
+            }
+        }
+        if (!$can) {
+            return $this->canEdit($member);
+        }
+        return $can;
+    }
+    public function canEdit($member = null)
+    {
+        if (!$member) {
+            $member = Security::getCurrentUser();
+        }
+        $can = parent::canEdit($member);
+        if (!$can && $member && $member->ID) {
+            if ($member->inGroups($this->EditorGroups())) {
+                return true;
+            }
+        }
+        return $can;
     }
 }

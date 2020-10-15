@@ -31,4 +31,12 @@ class FormResponseExtension extends DataExtension
     {
         return $this->owner->SubmissionList();
     }
+
+    public function canView($member)
+    {
+        $list = $this->owner->SubmissionList();
+        if ($list && $list->ID) {
+            return $list->canView($member);
+        }
+    }
 }
