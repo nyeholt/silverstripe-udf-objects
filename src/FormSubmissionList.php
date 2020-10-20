@@ -3,6 +3,7 @@
 namespace Symbiote\UdfObjects;
 
 use SilverStripe\Core\ClassInfo;
+use SilverStripe\Core\Config\Config;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\DropdownField;
 use SilverStripe\Forms\GridField\GridField;
@@ -17,6 +18,8 @@ use SilverStripe\ORM\DataObject;
 use SilverStripe\Security\Group;
 use SilverStripe\Security\Permission;
 use SilverStripe\Security\Security;
+use SilverStripe\UserForms\Model\EditableFormField\EditableFieldGroup;
+use SilverStripe\UserForms\Model\EditableFormField\EditableFieldGroupEnd;
 use SilverStripe\UserForms\Model\EditableFormField\EditableFormStep;
 use SilverStripe\UserForms\Model\Submission\SubmittedForm;
 use SilverStripe\UserForms\Model\UserDefinedForm;
@@ -24,6 +27,7 @@ use Symbiote\AdvancedWorkflow\DataObjects\WorkflowDefinition;
 use Symbiote\AdvancedWorkflow\Extensions\WorkflowApplicable;
 use Symbiote\AdvancedWorkflow\Services\WorkflowService;
 use Symbiote\MultiValueField\Fields\KeyValueField;
+use Symbiote\MultiValueField\ORM\FieldType\MultiValueField;
 
 class FormSubmissionList extends DataObject
 {
@@ -92,7 +96,8 @@ class FormSubmissionList extends DataObject
             $inst = singleton($this->TargetClass);
             $dbFields = [];
             if ($inst) {
-                $dbFields = array_keys($this->getSchema()->databaseFields($this->TargetClass));
+                $dbFields = array_keys(Config::inst()->get($this->TargetClass, 'db'));
+
                 $dbFields = array_combine($dbFields, $dbFields);
             }
 
@@ -152,7 +157,14 @@ class FormSubmissionList extends DataObject
         $names = [];
         foreach ($forms as $form) {
             foreach ($form->Fields() as $field) {
-                if ($field instanceof EditableFormStep) {
+                if (
+                    $field instanceof EditableFormStep ||
+                    $field instanceof EditableFieldGroup ||
+                    $field instanceof EditableFieldGroupEnd
+                ) {
+                    continue;
+                }
+                if (!$field->Title) {
                     continue;
                 }
                 $names[$field->Title] = $field->Title;
@@ -171,15 +183,29 @@ class FormSubmissionList extends DataObject
         $toCreate = $this->TargetClass;
 
         if ($mapping && $submittedFields && $toCreate) {
-            $submissionFieldVals = [];
+            $obj = $toCreate::create();
+
             foreach ($submittedFields as $submittedField) {
                 if (isset($mapping[$submittedField->Title])) {
                     $fname = $mapping[$submittedField->Title];
-                    $submissionFieldVals[$fname] = $submittedField->Value;
+
+                    // let's check what the type of the given field is;
+                    // if it's a multivaluefield, we're storing as part
+                    // of an array value
+                    $field = $obj->obj($fname);
+                    if ($field instanceof MultiValueField) {
+                        $vals = $obj->$fname->getValues();
+                        if (!$vals) {
+                            $vals = [];
+                        }
+                        $vals[$submittedField->Title] = $submittedField->Value;
+                        $obj->$fname = $vals;
+                    } else {
+                        $obj->$fname = $submittedField->Value;
+                    }
                 }
             }
 
-            $obj = $toCreate::create($submissionFieldVals);
             $obj->SubmissionListID = $this->ID;
             $obj->FromFormID = $submission->ParentID;
             $obj->write();
@@ -198,7 +224,8 @@ class FormSubmissionList extends DataObject
     /**
      * From a workflow perspective, we're acrchived
      */
-    public function isArchived() {
+    public function isArchived()
+    {
         return true;
     }
 
