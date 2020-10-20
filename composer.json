@@ -1,5 +1,5 @@
 {
-    "name": "symbiote/silverstripe-udf-objects",
+    "name": "nyeholt/silverstripe-udf-objects",
     "description": "Map Silverstripe UDF submissions to specific data objects",
     "type": "silverstripe-vendormodule",
     "keywords": [
@@ -19,7 +19,7 @@
         }
     ],
     "require": {
-        "silverstripe/framework": "^4.0"
+        "silverstripe/framework": "^4.1"
     },
     "require-dev": {
         "phpunit/phpunit": "^5.7"
