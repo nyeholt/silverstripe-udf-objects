@@ -2,6 +2,7 @@
 
 namespace Symbiote\UdfObjects;
 
+use DNADesign\ElementalUserForms\Model\ElementForm;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\Core\Injector\Injector;
@@ -152,7 +153,16 @@ class FormSubmissionList extends DataObject
     {
         $forms = UserDefinedForm::get()->filter([
             'SubmissionListID' => $this->ID,
-        ]);
+        ])->toArray();
+
+        if (class_exists(ElementForm::class)) {
+            $elements = ElementForm::get()->filter([
+                'SubmissionListID' => $this->ID,
+            ])->toArray();
+
+            $forms = array_merge($forms, $elements);
+        }
+
 
         $names = [];
         foreach ($forms as $form) {
@@ -174,7 +184,7 @@ class FormSubmissionList extends DataObject
         return $names;
     }
 
-    public function addFormSubmission(SubmittedForm $submission)
+    public function addFormSubmission(SubmittedForm $submission, $fromForm)
     {
         $mapping = $this->PropertyMap->getValues();
 
@@ -207,7 +217,11 @@ class FormSubmissionList extends DataObject
             }
 
             $obj->SubmissionListID = $this->ID;
-            $obj->FromFormID = $submission->ParentID;
+            if ($fromForm instanceof ElementForm) {
+                $obj->FromElementID = $fromForm->ID;
+            } else {
+                $obj->FromFormID = $fromForm->ID;
+            }
             $obj->write();
 
             // now remove if needed

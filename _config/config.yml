@@ -4,6 +4,9 @@ Name: form_submission_config
 SilverStripe\UserForms\Model\UserDefinedForm:
   extensions:
     - Symbiote\UdfObjects\UserFormExtension
+DNADesign\ElementalUserForms\Model\ElementForm:
+  extensions:
+    - Symbiote\UdfObjects\UserFormExtension
 
 SilverStripe\UserForms\Model\Submission\SubmittedForm:
   extensions:
@@ -22,3 +25,13 @@ Symbiote\UdfObjects\FormSubmissionList:
 Symbiote\UdfObjects\FormSubmissionListAdmin:
   extensions:
     - Symbiote\AdvancedWorkflow\Extensions\AdvancedWorkflowExtension
+
+---
+Name: form_submission_elemental
+Only:
+  moduleexists:
+    - dnadesign/silverstripe-elemental-userforms
+---
+Symbiote\UdfObjects\FormResponseExtension:
+  has_one:
+    FromElement: DNADesign\ElementalUserForms\Model\ElementForm
