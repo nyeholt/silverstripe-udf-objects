@@ -1,40 +1,35 @@
-# [Module Title]
+# Silverstripe User defined forms objects
 
-(Find + Replace the below badge links from "symbiote/silverstripe-gridfieldextensions" to your packagist name)
+Provides a way to map the information from a user defined form submission
+to a custom data object type. 
 
-[![Build Status](https://travis-ci.org/symbiote/silverstripe-gridfieldextensions.svg?branch=master)](https://travis-ci.org/symbiote/silverstripe-gridfieldextensions)
-[![Latest Stable Version](https://poser.pugx.org/symbiote/silverstripe-gridfieldextensions/version.svg)](https://github.com/symbiote/silverstripe-gridfieldextensions/releases)
-[![Latest Unstable Version](https://poser.pugx.org/symbiote/silverstripe-gridfieldextensions/v/unstable.svg)](https://packagist.org/packages/symbiote/silverstripe-gridfieldextensions)
-[![Total Downloads](https://poser.pugx.org/symbiote/silverstripe-gridfieldextensions/downloads.svg)](https://packagist.org/packages/symbiote/silverstripe-gridfieldextensions)
-[![License](https://poser.pugx.org/symbiote/silverstripe-gridfieldextensions/license.svg)](https://github.com/symbiote/silverstripe-gridfieldextensions/blob/master/LICENSE.md)
-
-[Short Description, 2-4 sentences]
-
-![TODO_CHANGE_THIS](docs/images/main.png)
 
 ## Composer Install
 
 ```
-composer require symbiote/silverstripe-newmodule:~1.0
+composer require nyeholt/silverstripe-udf-objects:~1.0
 ```
 
 ## Requirements
 
-* SilverStripe 3.1+
-* MultiValueField 1.1+
+* SilverStripe 4.1+
+* MultiValueField 5.0+
 
 ## Documentation
 
-* [Quick Start](docs/en/quick-start.md)
-* [Advanced Usage](docs/en/advanced-usage.md)
-* [License](LICENSE.md)
-* [Contributing](CONTRIBUTING.md)
+The module adds a "Submissions" section to the CMS. In here, 
+create a new Form Submission list, which is where submissions are stored. 
+First create a submission list, then navigate in the site tree
+to find the user defined form you want to submit to this list; a 
+new dropdown is available on the Submissions tab. 
 
-## Credits (OPTIONAL)
+Once this association is created, you can update the form submission list
+to specify the data object being saved into, and then choose the field 
+mapping. 
 
-Mention dependencies / shoutouts / stackoverflow answers that assisted.
+Next, apply the `FormResponseExtension` to the data object
+being used to capture submissions. 
 
-ie.
-* [Jonom](https://github.com/jonom/silverstripe-environment-awareness) for the format of this README.md
-* [Barakat S](https://github.com/FileZ/php-clamd) for clamd PHP interface
-* ["How to Forge" users](https://web.archive.org/web/20161124000346/https://www.howtoforge.com/community/threads/clamd-will-not-start.34559/) for fixing permissions relating to ClamAV
+Note that if you have a multivaluefield on the target object, you can 
+choose multiple fields to be mapped to it; each source field name
+will appear as a key in that target field. 
