@@ -117,12 +117,17 @@ class FormSubmissionList extends DataObject
                 $conf->getComponentByType(GridFieldSortableHeader::class);
                 $exportButton = new GridFieldExportButton('buttons-before-left');
 
-                $exportFields = count($mapping) ? array_combine(array_values($mapping), array_values($mapping)) : singleton($this->TargetClass)->summaryFields();
+                $exportFields = $this->buildExportColumns($mapping, $inst);
                 $exportButton->setExportColumns($exportFields);
                 $conf->addComponent(
                     $exportButton
                 );
                 $grid = GridField::create('Submissions', 'Submissions', $items->sort('ID', "DESC"), $conf);
+
+                $gridDataFields = $this->buildDataFields($mapping, $inst);
+                if (count($gridDataFields)) {
+                    $grid->addDataFields($gridDataFields);
+                }
 
                 // for workflow support!
                 $components = $grid->getReadonlyComponents();
@@ -141,6 +146,60 @@ class FormSubmissionList extends DataObject
             }
         }
 
+
+        return $fields;
+    }
+
+    /**
+     * Takes all the properties from a custom mapping of data
+     * and makes them available in the CSV export
+     */
+    protected function buildExportColumns($mapping, $instance)
+    {
+        $fields = [];
+        if (count($mapping)) {
+            foreach ($mapping as $formField => $propertyName) {
+                // hardcoded to "Properties" because that's what's on the form submission extension
+                if ($instance->obj($propertyName) instanceof MultiValueField) {
+                    $fields[$formField] = $formField;
+                } else {
+                    $fields[$propertyName] = $propertyName;
+                }
+            }
+        }
+        return $fields;
+    }
+
+    /**
+     * Creates the actual closures used by the gridfield to extract the
+     * property values
+     */
+    protected function buildDataFields($mapping, $instance)
+    {
+        $fields = [];
+
+        if (!count($mapping)) {
+            return $fields;
+        }
+
+        $buildField = function ($fieldProp) {
+            return function ($item) use ($fieldProp) {
+                list($fieldName, $propertyName) = explode('.', $fieldProp);
+                if ($item->$fieldName) {
+                    $props = $item->$fieldName->getValues();
+                    if ($props) {
+                        return isset($props[$propertyName]) ? $props[$propertyName] : '';
+                    }
+                }
+            };
+        };
+        foreach ($mapping as $formField => $propertyName) {
+            // see if it's a multivaluefield
+            if ($instance->obj($propertyName) instanceof MultiValueField) {
+
+                $fields[$formField] = $buildField($propertyName . '.' . $formField);
+            }
+        }
 
         return $fields;
     }
