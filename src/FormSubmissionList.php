@@ -217,6 +217,7 @@ class FormSubmissionList extends DataObject
             }
 
             $obj->SubmissionListID = $this->ID;
+            $obj->SubmittedFormID = $submission->ID;
             if ($fromForm instanceof ElementForm) {
                 $obj->FromElementID = $fromForm->ID;
             } else {
