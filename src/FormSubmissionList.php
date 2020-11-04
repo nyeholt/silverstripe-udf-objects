@@ -29,6 +29,7 @@ use Symbiote\AdvancedWorkflow\Extensions\WorkflowApplicable;
 use Symbiote\AdvancedWorkflow\Services\WorkflowService;
 use Symbiote\MultiValueField\Fields\KeyValueField;
 use Symbiote\MultiValueField\ORM\FieldType\MultiValueField;
+use Symbiote\QueuedJobs\Services\QueuedJobService;
 
 class FormSubmissionList extends DataObject
 {
@@ -227,7 +228,9 @@ class FormSubmissionList extends DataObject
 
             // now remove if needed
             if ($this->RemoveFormSubmissions) {
-                $submission->delete();
+                // via queued-job so the data is available for UserFormExtension::UdfDataValue()
+                $job = new DeleteSubmissionJob([ 'ID' => $submission->ID ]);
+                QueuedJobService::singleton()->queueJob($job, strtotime('now'));
             }
 
             if ($this->WorkflowDefinitionID) {
