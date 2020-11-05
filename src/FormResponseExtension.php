@@ -5,6 +5,7 @@ namespace Symbiote\UdfObjects;
 use DNADesign\ElementalUserForms\Model\ElementForm;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\ORM\DataExtension;
+use SilverStripe\UserForms\Model\Submission\SubmittedForm;
 use SilverStripe\UserForms\Model\UserDefinedForm;
 use Symbiote\MultiValueField\Fields\KeyValueField;
 use Symbiote\MultiValueField\ORM\FieldType\MultiValueField;
@@ -22,7 +23,7 @@ class FormResponseExtension extends DataExtension
     private static $has_one = [
         'SubmissionList' => FormSubmissionList::class,
         'FromForm' => UserDefinedForm::class,
-
+        'SubmittedForm' => SubmittedForm::class
     ];
 
     public function updateCMSFields(FieldList $fields)
