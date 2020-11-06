@@ -68,7 +68,7 @@ class FormSubmissionList extends DataObject
         $dataClasses = ClassInfo::subclassesFor(DataObject::class);
         foreach ($dataClasses as $type => $label) {
             if (DataObject::has_extension($type, FormResponseExtension::class)) {
-                $types[$type] = substr($label, strrpos($label, "\\") + 1);
+                $types[$label] = substr($label, strrpos($label, "\\") + 1);
             }
         }
 
