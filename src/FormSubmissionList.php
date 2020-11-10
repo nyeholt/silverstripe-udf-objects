@@ -168,6 +168,9 @@ class FormSubmissionList extends DataObject
                 }
             }
         }
+        if (method_exists($this->TargetClass, 'updateExportColumns')) {
+            $this->TargetClass::updateExportColumns($fields);
+        }
         return $fields;
     }
 
