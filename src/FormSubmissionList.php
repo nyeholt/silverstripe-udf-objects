@@ -138,8 +138,8 @@ class FormSubmissionList extends DataObject
                 $fields->addFieldToTab('Root.Main', $grid);
             }
 
+            $fields->removeByName('AdditionalWorkflowDefinitions');
             if (class_exists(WorkflowDefinition::class) && DataObject::has_extension($this->TargetClass, WorkflowApplicable::class) && Permission::check('ADMIN')) {
-                $fields->removeByName('AdditionalWorkflowDefinitions');
                 $fields->addFieldsToTab('Root.Workflow', [
                     DropdownField::create('WorkflowDefinitionID', 'Workflow to apply', WorkflowDefinition::get()->map())
                         ->setEmptyString('Select a workflow')
