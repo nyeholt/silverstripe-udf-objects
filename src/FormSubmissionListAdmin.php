@@ -12,4 +12,9 @@ class FormSubmissionListAdmin extends ModelAdmin
         FormSubmissionList::class,
     ];
 
+    protected function init()
+    {
+        parent::init();
+        $this->showImportForm = false;
+    }
 }
