@@ -45,6 +45,7 @@ class FormSubmissionList extends DataObject
     private static $many_many = [
         'ViewGroups' => Group::class,
         'EditorGroups' => Group::class,
+        'AdminGroups' => Group::class,
     ];
 
     public function onBeforeWrite()
@@ -68,7 +69,7 @@ class FormSubmissionList extends DataObject
         $dataClasses = ClassInfo::subclassesFor(DataObject::class);
         foreach ($dataClasses as $type => $label) {
             if (DataObject::has_extension($type, FormResponseExtension::class)) {
-                $types[$type] = substr($label, strrpos($label, "\\") + 1);
+                $types[$label] = substr($label, strrpos($label, "\\") + 1);
             }
         }
 
@@ -77,6 +78,7 @@ class FormSubmissionList extends DataObject
 
         $fields->removeByName('ViewGroups');
         $fields->removeByName('EditorGroups');
+        $fields->removeByName('AdminGroups');
 
         if ($this->ID && $this->TargetClass) {
             $mapping = $this->PropertyMap->getValues();
@@ -92,6 +94,7 @@ class FormSubmissionList extends DataObject
             $groups = Group::get()->map()->toArray();
             $configFields[] = ListboxField::create('ViewGroups', "Viewer groups", $groups);
             $configFields[] = ListboxField::create('EditorGroups', "Editor groups", $groups);
+            $configFields[] = ListboxField::create('AdminGroups', "Admin groups", $groups);
 
             $fields->addFieldsToTab('Root.Configuration', $configFields);
 
@@ -138,8 +141,8 @@ class FormSubmissionList extends DataObject
                 $fields->addFieldToTab('Root.Main', $grid);
             }
 
-            if (class_exists(WorkflowDefinition::class) && DataObject::has_extension($this->TargetClass, WorkflowApplicable::class) && Permission::check('ADMIN')) {
-                $fields->removeByName('AdditionalWorkflowDefinitions');
+            $fields->removeByName('AdditionalWorkflowDefinitions');
+            if (class_exists(WorkflowDefinition::class) && DataObject::has_extension($this->TargetClass, WorkflowApplicable::class)) {
                 $fields->addFieldsToTab('Root.Workflow', [
                     DropdownField::create('WorkflowDefinitionID', 'Workflow to apply', WorkflowDefinition::get()->map())
                         ->setEmptyString('Select a workflow')
@@ -147,6 +150,10 @@ class FormSubmissionList extends DataObject
             }
         }
 
+        if (!$this->canConfigure()) {
+            $fields->removeByName('Configuration');
+            $fields->removeByName('Workflow');
+        }
 
         return $fields;
     }
@@ -167,6 +174,9 @@ class FormSubmissionList extends DataObject
                     $fields[$propertyName] = $propertyName;
                 }
             }
+        }
+        if (method_exists($this->TargetClass, 'updateExportColumns')) {
+            $this->TargetClass::updateExportColumns($fields);
         }
         return $fields;
     }
@@ -322,6 +332,7 @@ class FormSubmissionList extends DataObject
         }
         return $can;
     }
+
     public function canEdit($member = null)
     {
         if (!$member) {
@@ -334,5 +345,19 @@ class FormSubmissionList extends DataObject
             }
         }
         return $can;
+    }
+
+    public function canConfigure($member = null)
+    {
+        if (!$member) {
+            $member = Security::getCurrentUser();
+        }
+        if ($member && $member->ID) {
+            // if admin or in admin group
+            if (Permission::checkMember($member, 'ADMIN') || $member->inGroups($this->AdminGroups())) {
+                return true;
+            }
+        }
+        return false;
     }
 }
