@@ -7,6 +7,7 @@ use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\DropdownField;
+use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\GridField\GridField;
 use SilverStripe\Forms\GridField\GridFieldConfig_RecordEditor;
 use SilverStripe\Forms\GridField\GridFieldEditButton;
@@ -63,99 +64,99 @@ class FormSubmissionList extends DataObject
 
     public function getCMSFields()
     {
-        $fields = parent::getCMSFields();
-
-        $types = [];
-        $dataClasses = ClassInfo::subclassesFor(DataObject::class);
-        foreach ($dataClasses as $type => $label) {
-            if (DataObject::has_extension($type, FormResponseExtension::class)) {
-                $types[$label] = substr($label, strrpos($label, "\\") + 1);
-            }
-        }
-
-        $fields->replaceField('TargetClass', DropdownField::create('TargetClass', 'Create items of this type', $types));
-        $fields->removeByName('PropertyMap');
-
-        $fields->removeByName('ViewGroups');
-        $fields->removeByName('EditorGroups');
-        $fields->removeByName('AdminGroups');
-
-        if ($this->ID && $this->TargetClass) {
-            $mapping = $this->PropertyMap->getValues();
-
-            $fields->addFieldToTab('Root', Tab::create('Configuration'));
-            $configFields = [];
-            $configFields[] = $fields->dataFieldByName('Title');
-            $configFields[] = $fields->dataFieldByName('TargetClass');
-            $configFields[] = $fields->dataFieldByName('RemoveFormSubmissions');
-
-            $fields->removeFieldsFromTab('Root.Main', ['Title', 'TargetClass', 'PropertyMap', 'RemoveFormSubmissions']);
-
-            $groups = Group::get()->map()->toArray();
-            $configFields[] = ListboxField::create('ViewGroups', "Viewer groups", $groups);
-            $configFields[] = ListboxField::create('EditorGroups', "Editor groups", $groups);
-            $configFields[] = ListboxField::create('AdminGroups', "Admin groups", $groups);
-
-            $fields->addFieldsToTab('Root.Configuration', $configFields);
-
-            $inst = singleton($this->TargetClass);
-            $dbFields = [];
-            if ($inst) {
-                $dbFields = array_keys(Config::inst()->get($this->TargetClass, 'db'));
-
-                $dbFields = array_combine($dbFields, $dbFields);
+        $this->beforeUpdateCMSFields(function (FieldList $fields) {
+            $types = [];
+            $dataClasses = ClassInfo::subclassesFor(DataObject::class);
+            foreach ($dataClasses as $type => $label) {
+                if (DataObject::has_extension($type, FormResponseExtension::class)) {
+                    $types[$label] = substr($label, strrpos($label, "\\") + 1);
+                }
             }
 
-            $formFields = $this->gatherFormFields();
+            $fields->replaceField('TargetClass', DropdownField::create('TargetClass', 'Create items of this type', $types));
+            $fields->removeByName('PropertyMap');
 
-            $mappingField = KeyValueField::create('PropertyMap', 'Map fields from the form to a property', $formFields, $dbFields);
-            // $mappingField->setRightTitle("");
-            $fields->insertAfter('TargetClass', $mappingField);
+            $fields->removeByName('ViewGroups');
+            $fields->removeByName('EditorGroups');
+            $fields->removeByName('AdminGroups');
 
-            $items = DataList::create($this->TargetClass)->filter([
-                'SubmissionListID' => $this->ID,
-            ]);
+            if ($this->ID && $this->TargetClass) {
+                $mapping = $this->PropertyMap->getValues();
 
-            if ($items && count($items)) {
-                $conf = GridFieldConfig_RecordEditor::create();
-                $conf->getComponentByType(GridFieldSortableHeader::class);
-                $exportButton = new GridFieldExportButton('buttons-before-left');
+                $fields->addFieldToTab('Root', Tab::create('Configuration'));
+                $configFields = [];
+                $configFields[] = $fields->dataFieldByName('Title');
+                $configFields[] = $fields->dataFieldByName('TargetClass');
+                $configFields[] = $fields->dataFieldByName('RemoveFormSubmissions');
 
-                $exportFields = $this->buildExportColumns($mapping, $inst);
-                $exportButton->setExportColumns($exportFields);
-                $conf->addComponent(
-                    $exportButton
-                );
-                $grid = GridField::create('Submissions', 'Submissions', $items->sort('ID', "DESC"), $conf);
+                $fields->removeFieldsFromTab('Root.Main', ['Title', 'TargetClass', 'PropertyMap', 'RemoveFormSubmissions']);
 
-                $gridDataFields = $this->buildDataFields($mapping, $inst);
-                if (count($gridDataFields)) {
-                    $grid->addDataFields($gridDataFields);
+                $groups = Group::get()->map()->toArray();
+                $configFields[] = ListboxField::create('ViewGroups', "Viewer groups", $groups);
+                $configFields[] = ListboxField::create('EditorGroups', "Editor groups", $groups);
+                $configFields[] = ListboxField::create('AdminGroups', "Admin groups", $groups);
+
+                $fields->addFieldsToTab('Root.Configuration', $configFields);
+
+                $inst = singleton($this->TargetClass);
+                $dbFields = [];
+                if ($inst) {
+                    $dbFields = array_keys(Config::inst()->get($this->TargetClass, 'db'));
+
+                    $dbFields = array_combine($dbFields, $dbFields);
                 }
 
-                // for workflow support!
-                $components = $grid->getReadonlyComponents();
-                $components[] = GridFieldEditButton::class;
-                $grid->setReadonlyComponents($components);
+                $formFields = $this->gatherFormFields();
 
-                $fields->addFieldToTab('Root.Main', $grid);
-            }
+                $mappingField = KeyValueField::create('PropertyMap', 'Map fields from the form to a property', $formFields, $dbFields);
+                // $mappingField->setRightTitle("");
+                $fields->insertAfter('TargetClass', $mappingField);
 
-            $fields->removeByName('AdditionalWorkflowDefinitions');
-            if (class_exists(WorkflowDefinition::class) && DataObject::has_extension($this->TargetClass, WorkflowApplicable::class)) {
-                $fields->addFieldsToTab('Root.Workflow', [
-                    DropdownField::create('WorkflowDefinitionID', 'Workflow to apply', WorkflowDefinition::get()->map())
-                        ->setEmptyString('Select a workflow')
+                $items = DataList::create($this->TargetClass)->filter([
+                    'SubmissionListID' => $this->ID,
                 ]);
+
+                if ($items && count($items)) {
+                    $conf = GridFieldConfig_RecordEditor::create();
+                    $conf->getComponentByType(GridFieldSortableHeader::class);
+                    $exportButton = new GridFieldExportButton('buttons-before-left');
+
+                    $exportFields = $this->buildExportColumns($mapping, $inst);
+                    $exportButton->setExportColumns($exportFields);
+                    $conf->addComponent(
+                        $exportButton
+                    );
+                    $grid = GridField::create('Submissions', 'Submissions', $items->sort('ID', "DESC"), $conf);
+
+                    $gridDataFields = $this->buildDataFields($mapping, $inst);
+                    if (count($gridDataFields)) {
+                        $grid->addDataFields($gridDataFields);
+                    }
+
+                    // for workflow support!
+                    $components = $grid->getReadonlyComponents();
+                    $components[] = GridFieldEditButton::class;
+                    $grid->setReadonlyComponents($components);
+
+                    $fields->addFieldToTab('Root.Main', $grid);
+                }
+
+                $fields->removeByName('AdditionalWorkflowDefinitions');
+                if (class_exists(WorkflowDefinition::class) && DataObject::has_extension($this->TargetClass, WorkflowApplicable::class)) {
+                    $fields->addFieldsToTab('Root.Workflow', [
+                        DropdownField::create('WorkflowDefinitionID', 'Workflow to apply', WorkflowDefinition::get()->map())
+                            ->setEmptyString('Select a workflow')
+                    ]);
+                }
             }
-        }
 
-        if (!$this->canConfigure()) {
-            $fields->removeByName('Configuration');
-            $fields->removeByName('Workflow');
-        }
+            if (!$this->canConfigure()) {
+                $fields->removeByName('Configuration');
+                $fields->removeByName('Workflow');
+            }
+        });
 
-        return $fields;
+        return parent::getCMSFields();
     }
 
     /**
