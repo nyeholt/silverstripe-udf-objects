@@ -77,7 +77,7 @@ class UserFormExtension extends DataExtension
                 // add mapped properties
                 if ($obj->Properties) {
                     $props = $obj->Properties->getValue();
-                    if (count($props)) {
+                    if ($props && count($props)) {
                         $sub_data_cache = array_replace_recursive($sub_data_cache, $props);
                     }
                 }
