@@ -163,7 +163,7 @@ class FormSubmissionList extends DataObject
      * Takes all the properties from a custom mapping of data
      * and makes them available in the CSV export
      */
-    protected function buildExportColumns($mapping, $instance)
+    public function buildExportColumns($mapping, $instance)
     {
         $fields = [];
         if (count($mapping)) {
